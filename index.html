@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portfolio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    const savedTheme = localStorage.getItem('portfolio-theme') || 'default';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.documentElement.classList.add('no-transition');
+    window.addEventListener('DOMContentLoaded', () => {
+      requestAnimationFrame(() => document.documentElement.classList.remove('no-transition'));
+    });
+  </script>
+</head>
+<body>
+  <div id="bar"></div>
+  
+  <div class="cr" id="cr">
+    <button class="fab" id="crb" aria-expanded="false" aria-controls="cp" aria-label="Crédits">ⓘ <span>Crédits</span></button>
+    <div id="cp" role="tooltip"></div>
+  </div>
+
+  <!-- Bouton menu mobile -->
+  <button class="fab" id="menu" aria-label="Menu">☰</button>
+
+  <div class="tr">
+    <!-- Sélecteur de thèmes repliable (bouton carré + pastilles) -->
+    <div class="theme-container" id="theme-container">
+      <button class="fab" id="theme-toggle" aria-label="Choisir le thème de couleur">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </button>
+      <div class="theme-picker" role="group" aria-label="Choisir le thème de couleur">
+        <button class="theme-btn" data-theme="default" style="background: #7ee2b0;" aria-label="Thème Vert (Défaut)" title="Vert (Défaut)" aria-current="true"></button>
+        <button class="theme-btn" data-theme="black" style="background: #111111; border-color: #555;" aria-label="Thème Noir" title="Noir"></button>
+        <button class="theme-btn" data-theme="white" style="background: #ffffff;" aria-label="Thème Blanc" title="Blanc"></button>
+        <button class="theme-btn" data-theme="red" style="background: #ff5252;" aria-label="Thème Rouge" title="Rouge"></button>
+        <button class="theme-btn" data-theme="orange" style="background: #fb923c;" aria-label="Thème Orange" title="Orange"></button>
+        <button class="theme-btn" data-theme="yellow" style="background: #eab308;" aria-label="Thème Jaune" title="Jaune"></button>
+        <button class="theme-btn" data-theme="blue" style="background: #38bdf8;" aria-label="Thème Bleu" title="Bleu"></button>
+        <button class="theme-btn" data-theme="purple" style="background: #c084fc;" aria-label="Thème Violet" title="Violet"></button>
+        <button class="theme-btn" data-theme="pink" style="background: #ec4899;" aria-label="Thème Rose" title="Rose"></button>
+        <button class="theme-btn" data-theme="cyan" style="background: #06b6d4;" aria-label="Thème Cyan" title="Cyan"></button>
+      </div>
+    </div>
+    <button class="fab" id="print" aria-label="Exporter en PDF">⎙ <span>Exporter PDF</span></button>
+    <button class="fab" id="find" aria-label="Rechercher">Rechercher <img src="./assets/icons/loupe.svg" alt="" class="icon-loupe"></button>
+  </div>
+
+  <nav id="side" aria-label="Navigation rapide"></nav>
+
+  <main>
+    <header class="hero" id="top">
+      <h1>Portfolio</h1>
+      <p class="nom" id="nom"></p>
+      <p id="formation"></p>
+      <p id="intro"></p>
+    </header>
+    <section id="ov" data-sec style="margin-top:40px"></section>
+    <section id="saes" data-sec></section>
+    <div id="comps"></div>
+  </main>
+
+  <div id="sr" role="dialog" aria-modal="true" aria-label="Recherche">
+    <div>
+      <input id="q" type="search" placeholder="Rechercher un AC, un projet, un mot, un fichier…" aria-label="Rechercher" autocomplete="off">
+      <div id="res"></div>
+    </div>
+  </div>
+
+  <div class="vw" id="vw" role="dialog" aria-modal="true" aria-label="Visionneuse">
+    <div class="bd" id="vb"></div>
+    <div class="ft">
+      <div>
+        <b id="vt"></b>
+        <small id="vs"></small>
+      </div>
+      <button id="vp" aria-label="Précédent">←</button>
+      <button id="vn" aria-label="Suivant">→</button>
+      <a id="vo" target="_blank" rel="noopener">Ouvrir à part</a>
+      <button id="vc">Fermer</button>
+    </div>
+  </div>
+
+  <script src="assets-index.js"></script>
+  <script src="content.js"></script>
+  <script>
+    const P = PORTFOLIO, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const ok = a => a.argumentation.trim() && a.fichiers.length;
+    const pts = a => (a.argumentation.trim() ? .5 : 0) + (a.fichiers.length ? .5 : 0);
+
+    /* Gestion des thèmes par carrés de couleur */
+    const themeBtns = $$('.theme-btn');
+    function updateThemeUI(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('portfolio-theme', theme);
+      themeBtns.forEach(b => b.setAttribute('aria-current', b.dataset.theme === theme));
+    }
+
+    updateThemeUI(savedTheme);
+
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.theme-btn');
+      if (!btn) return;
+      updateThemeUI(btn.dataset.theme);
+    });
+
+    /* Fichiers = ceux déclarés dans content.js + ceux détectés dans assets/ (assets-index.js) */
+    const FOUND = typeof ASSETS_INDEX !== 'undefined' ? ASSETS_INDEX : {};
+    const nice = f => { const s = f.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim(); return s.charAt(0).toUpperCase() + s.slice(1); };
+    P.saes = P.saes || {};
+    P.competences.forEach(c => c.acs.forEach(a => {
+      const decl = a.fichiers || [], have = new Set(decl.map(f => f.fichier));
+      a.fichiers = [...decl, ...(FOUND[a.code] || []).filter(f => !have.has(f)).map(f => ({ fichier: f, titre: nice(f) }))];
+      a.sae = a.sae || [];
+    }));
+
+    function meta(c) {
+      const s = [...new Set(c.acs.flatMap(a => a.sae))].sort();
+      return `<p class="meta"><span>${c.acs.length} AC</span><span>${c.acs.filter(ok).length} complétés</span><span>${c.acs.reduce((n, a) => n + a.fichiers.length, 0)} fichiers</span>${s.length ? `<span>Projets ${s.join(' · ')}</span>` : ''}</p>`;
+    }
+
+    document.title = 'Portfolio – ' + P.nom;
+    $('#nom').textContent = P.nom; 
+    $('#formation').textContent = P.formation; 
+    $('#intro').textContent = P.introduction;
+    $('#cp').innerHTML = P.credits.map(c => {
+      const nomHtml = c.url 
+        ? `<a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">${esc(c.nom)}</a>` 
+        : esc(c.nom);
+      return `<p><small>${esc(c.role)}</small>${nomHtml}</p>`;
+    }).join('');
+
+    /* Contenu */
+    const IMG = ['png','jpg','jpeg','gif','webp','svg','avif'];
+    function slide(code, f, i) {
+      const url = 'assets/' + code + '/' + encodeURIComponent(f.fichier), ext = f.fichier.split('.').pop().toLowerCase(), img = IMG.includes(ext);
+      const t = esc(f.titre || f.fichier);
+      return `<div class="slide" data-u="${url}" data-k="${img ? 'img' : 'pdf'}" data-t="${t}" data-l="${esc(f.legende || '')}" data-s="${esc(f.source || '')}" aria-hidden="${i ? 'true' : 'false'}">${img ? `<img src="${url}" alt="${t}" loading="lazy" decoding="async">` : `<div class="pdfc"><b>${ext.toUpperCase()}</b><span>${t}</span></div>`}</div>`;
+    }
+    
+    function cap(f, i) {
+      const src = /^https?:\/\//.test(f.source || '') ? `<a href="${esc(f.source)}" target="_blank" rel="noopener">${esc(f.source)}</a>` : esc(f.source || 'source à préciser');
+      return `<div class="cap${i ? '' : ' on'}"><b>${esc(f.titre || f.fichier)}</b>${f.legende ? `<p>${esc(f.legende)}</p>` : ''}<small>Source : ${src}</small></div>`;
+    }
+
+    function printFig(code, f) {
+      const url = 'assets/' + code + '/' + encodeURIComponent(f.fichier), ext = f.fichier.split('.').pop().toLowerCase();
+      const cp = `<figcaption><b>${esc(f.titre || f.fichier)}</b>${f.legende ? ' – ' + esc(f.legende) : ''}<small>Source : ${esc(f.source || 'à préciser')}${IMG.includes(ext) ? '' : ' · PDF : ' + esc(f.fichier)}</small></figcaption>`;
+      return `<figure>${IMG.includes(ext) ? `<img src="${url}" alt="${esc(f.titre || '')}" loading="lazy">` : ''}${cp}</figure>`;
+    }
+
+    function carousel(code, fl) {
+      const n = fl.length;
+      return `<div class="car" data-n="${n}" data-i="0" tabindex="0" role="group" aria-roledescription="carrousel" aria-label="Exemples ${code}">
+        <div class="view"><div class="track">${fl.map((f, i) => slide(code, f, i)).join('')}</div>
+          ${n > 1 ? '<button class="nv pv" aria-label="Précédent">‹</button><button class="nv nx" aria-label="Suivant">›</button>' : ''}
+          <button class="zm" aria-label="Agrandir">⤢</button><span class="cnt">1 / ${n}</span></div>
+        ${n > 1 ? `<div class="dots">${fl.map((f, i) => `<button class="${i ? '' : 'on'}" aria-label="Fichier ${i + 1}"></button>`).join('')}</div>` : ''}
+        <div class="caps">${fl.map(cap).join('')}</div></div>`;
+    }
+
+    $('#saes').innerHTML = `<h2>Projets</h2>
+      ${P.saeDefinition.trim() ? `<p class="saeI">${esc(P.saeDefinition.trim())}</p>` : `<p class="saeI vide">Définition à rédiger.</p>`}
+      ${Object.keys(P.saes).length ? `<div class="chips" role="group" aria-label="Filtrer les AC par projet"><button data-f="" aria-pressed="true">Tous les AC</button>${Object.keys(P.saes).map(k => `<button data-f="${k}" aria-pressed="false" title="${esc(P.saes[k])}">${k}</button>`).join('')}</div>` : ''}`;
+
+    $('#comps').innerHTML = P.competences.map(c => `
+      <section id="${c.id}" data-sec style="--c:${c.couleur}">
+        <h2>${esc(c.nom)}</h2>
+        <p class="int">${esc(c.intitule)}</p>
+        <p class="niv">${esc(c.niveau)}</p>
+        ${meta(c)}
+        <div class="prog" aria-hidden="true"><i style="width:${Math.round(100 * c.acs.filter(ok).length / c.acs.length)}%"></i></div>
+        ${c.synthese.trim() ? `<p class="syn">${esc(c.synthese.trim())}</p>` : ''}
+        ${c.acs.map(a => `<article class="ac" id="ac-${a.code}" data-sec data-comp="${c.id}" data-sae="${a.sae.join(' ')}">
+          <h3><span>${a.code}</span>${esc(a.titre)}</h3>
+          <div class="tags">${a.sae.map(s => `<button class="tag" data-f="${s}" aria-pressed="false" title="${esc(P.saes[s] || '')}">${s}</button>`).join('')}</div>
+          ${a.argumentation.trim() ? `<p class="arg">${esc(a.argumentation.trim())}</p>` : `<p class="arg vide">Argumentation à venir.</p>`}
+          ${a.fichiers.length ? carousel(a.code, a.fichiers) : `<p class="vide">Aucun exemple déposé dans assets/${a.code}/ pour l’instant.</p>`}
+          <div class="pr">${a.fichiers.map(f => printFig(a.code, f)).join('')}</div>
+        </article>`).join('')}
+      </section>`).join('');
+
+    /* Vue d'ensemble : chiffres + radar */
+    (function () {
+      const cs = P.competences, n = cs.length, R = 125, X = 210, Y = 190;
+      const val = cs.map(c => c.acs.reduce((s, a) => s + pts(a), 0) / c.acs.length);
+      const pt = (i, r) => { 
+        const t = -Math.PI / 2 + (i * 2 * Math.PI) / n; 
+        return [X + r * Math.cos(t), Y + r * Math.sin(t)]; 
+      };
+      const poly = k => cs.map((_, i) => pt(i, R * k).map(v => v.toFixed(1)).join(',')).join(' ');
+      const total = cs.reduce((s, c) => s + c.acs.length, 0), done = cs.reduce((s, c) => s + c.acs.filter(ok).length, 0);
+      const files = cs.reduce((s, c) => s + c.acs.reduce((m, a) => m + a.fichiers.length, 0), 0);
+      const svg = `<svg class="radar" viewBox="0 0 420 380" role="img" aria-label="Radar d’avancement des ${n} compétences">
+        ${[.25, .5, .75, 1].map(k => `<polygon class="ring" points="${poly(k)}"/>`).join('')}
+        ${cs.map((_, i) => `<line class="axis" x1="${X}" y1="${Y}" x2="${pt(i, R)[0].toFixed(1)}" y2="${pt(i, R)[1].toFixed(1)}"/>`).join('')}
+        <g class="grow">
+          <polygon class="area" points="${val.map((v, i) => pt(i, R * v).map(x => x.toFixed(1)).join(',')).join(' ')}"/>
+          ${cs.map((c, i) => `<circle cx="${pt(i, R * val[i])[0].toFixed(1)}" cy="${pt(i, R * val[i])[1].toFixed(1)}" r="5" fill="${c.couleur}"/>`).join('')}
+        </g>
+        ${cs.map((c, i) => `<a href="#${c.id}"><text class="rl" x="${pt(i, R + 26)[0].toFixed(1)}" y="${pt(i, R + 26)[1].toFixed(1)}">${esc(c.nom)}</text></a>`).join('')}
+      </svg>`;
+      $('#ov').innerHTML = `<h2>Vue d’ensemble</h2><div class="ovg"><div>${svg}</div><div>
+        <div class="stats"><div><b>${done}/${total}</b><span>AC complétés</span></div><div><b>${files}</b><span>fichiers</span></div><div><b>${Object.keys(P.saes).length}</b><span>Projets</span></div></div>
+        ${cs.map((c, i) => `<a class="row" href="#${c.id}" style="--c:${c.couleur}"><b>${esc(c.nom)}</b><span>${Math.round(val[i] * 100)} %</span><i><u style="width:${Math.round(val[i] * 100)}%"></u></i></a>`).join('')}
+      </div></div>`;
+      const r = $('#ov .radar'), o = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { r.classList.add('go'); o.disconnect(); } }), { threshold: .3 });
+      o.observe(r);
+    })();
+
+    /* Navigation latérale */
+    $('#side').innerHTML = `<a href="#top" data-nav="top">Accueil</a>
+      <a href="#ov" data-nav="ov">Vue d’ensemble</a>
+      <a class="gh" href="#saes" data-nav="saes" style="--c:var(--mint)"><i></i>Projets</a>
+      <p class="sep">Compétences</p>` +
+      P.competences.map(c => `<div class="g" data-comp="${c.id}" style="--c:${c.couleur}">
+        <a class="gh" href="#${c.id}" data-nav="${c.id}"><i></i>${esc(c.nom)}<em>${c.acs.filter(ok).length}/${c.acs.length}</em></a>
+        <div class="sub"><div>${c.acs.map(a => `<a href="#ac-${a.code}" data-nav="ac-${a.code}"><span class="d${ok(a) ? ' ok' : ''}"></span>${a.code}</a>`).join('')}</div></div></div>`).join('');
+
+    /* Suivi du défilement */
+    const secs = $$('[data-sec]'), links = $$('#side [data-nav]'), bar = $('#bar');
+    function spy() {
+      let cur = null;
+      for (const e of secs) { if (e.hidden) continue; if (e.getBoundingClientRect().top <= 140) cur = e; else break; }
+      const id = cur ? cur.id : 'top', comp = cur ? (cur.dataset.comp || cur.id) : '';
+      links.forEach(l => l.setAttribute('aria-current', l.dataset.nav === id));
+      $$('#side .g').forEach(g => g.classList.toggle('on', g.dataset.comp === comp));
+      bar.style.transform = `scaleX(${scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight)})`;
+    }
+    addEventListener('scroll', () => requestAnimationFrame(spy), { passive: true }); spy();
+
+    /* Filtre par projet */
+    let flt = '';
+    function applyF(f) {
+      flt = f;
+      $$('[data-f]').forEach(b => b.setAttribute('aria-pressed', b.dataset.f === f));
+      $$('.ac').forEach(el => { el.hidden = !!f && !el.dataset.sae.split(' ').includes(f); });
+      $$('#comps > section').forEach(s => { s.hidden = !s.querySelector('.ac:not([hidden])'); });
+      $$('#side [data-nav]').forEach(l => { const t = document.getElementById(l.dataset.nav); if (t) l.hidden = t.hidden; });
+      $$('#side .g').forEach(g => { g.hidden = document.getElementById(g.dataset.comp).hidden; });
+      spy();
+    }
+    document.addEventListener('click', e => {
+      const b = e.target.closest('button[data-f]'); if (!b) return;
+      applyF(b.dataset.f === flt ? '' : b.dataset.f);
+      if (b.classList.contains('tag')) requestAnimationFrame(() => b.scrollIntoView({ block: 'center' }));
+    });
+
+    /* Export PDF */
+    $('#print').onclick = async () => {
+      const im = $$('.pr img'); im.forEach(i => { i.loading = 'eager'; });
+      await Promise.race([Promise.all(im.map(i => i.decode().catch(() => {}))), new Promise(r => setTimeout(r, 6000))]);
+      print();
+    };
+
+    /* Menu mobile, crédits sécurisés */
+    const side = $('#side');
+    const menuBtn = $('#menu');
+    if (menuBtn) menuBtn.onclick = () => side.classList.toggle('open');
+    if (side) side.addEventListener('click', e => { if (e.target.closest('a')) side.classList.remove('open'); });
+    
+    const crb = $('#crb');
+    if (crb) crb.onclick = () => { const o = $('#cr').classList.toggle('open'); crb.setAttribute('aria-expanded', o); };
+    document.addEventListener('click', e => { if (!e.target.closest('#cr')) $('#cr').classList.remove('open'); });
+
+    /* Carrousels */
+    function setSlide(car, i) {
+      const n = +car.dataset.n; i = (i + n) % n; car.dataset.i = i;
+      car.querySelector('.track').style.setProperty('--i', i);
+      car.querySelectorAll('.slide').forEach((s, k) => {
+        s.setAttribute('aria-hidden', k !== i);
+        if (k === i && s.dataset.k === 'pdf' && !s.dataset.on) { s.dataset.on = 1; s.innerHTML = `<iframe src="${s.dataset.u}#view=FitH" title="${esc(s.dataset.t)}"></iframe>`; }
+      });
+      car.querySelectorAll('.cap').forEach((c, k) => c.classList.toggle('on', k === i));
+      car.querySelectorAll('.dots button').forEach((d, k) => d.classList.toggle('on', k === i));
+      car.querySelector('.cnt').textContent = (i + 1) + ' / ' + n;
+    }
+    const io2 = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { setSlide(e.target, 0); io2.unobserve(e.target); } }), { rootMargin: '400px' });
+    $$('.car').forEach(c => io2.observe(c));
+    let sx = null, swiped = false;
+    document.addEventListener('pointerdown', e => { sx = e.target.closest('.view') ? e.clientX : null; });
+    document.addEventListener('pointerup', e => {
+      if (sx === null) return; const car = e.target.closest('.car'), d = e.clientX - sx; sx = null;
+      if (car && Math.abs(d) > 50) { swiped = true; setSlide(car, (+car.dataset.i || 0) + (d < 0 ? 1 : -1)); }
+    });
+    document.addEventListener('click', e => {
+      if (swiped) { swiped = false; return; }
+      const car = e.target.closest('.car'); if (!car) return;
+      const i = +car.dataset.i || 0, b = e.target.closest('button');
+      if (!b && e.target.closest('.slide img')) openV(car, i);
+      else if (!b) return;
+      else if (b.classList.contains('pv')) setSlide(car, i - 1);
+      else if (b.classList.contains('nx')) setSlide(car, i + 1);
+      else if (b.classList.contains('zm')) openV(car, i);
+      else if (b.closest('.dots')) setSlide(car, [...b.parentNode.children].indexOf(b));
+    });
+    document.addEventListener('keydown', e => {
+      const car = e.target.closest && e.target.closest('.car');
+      if (car && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); setSlide(car, (+car.dataset.i || 0) + (e.key === 'ArrowRight' ? 1 : -1)); }
+    });
+
+    /* Visionneuse plein écran */
+    let vc = null, vl = [], vi = 0;
+    function show() {
+      const s = vl[vi], u = s.dataset.u;
+      $('#vb').innerHTML = s.dataset.k === 'img' ? `<img src="${u}" alt="">` : `<iframe src="${u}" title="PDF"></iframe>`;
+      $('#vt').textContent = s.dataset.t;
+      $('#vs').textContent = [s.dataset.l, s.dataset.s && 'Source : ' + s.dataset.s].filter(Boolean).join('\n');
+      $('#vo').href = u;
+      $('#vp').style.display = $('#vn').style.display = vl.length > 1 ? '' : 'none';
+    }
+    function openV(car, i) { vc = car; vl = [...car.querySelectorAll('.slide')]; vi = i; $('#vw').classList.add('open'); show(); $('#vc').focus(); }
+    function closeV() { if (!$('#vw').classList.contains('open')) return; $('#vw').classList.remove('open'); $('#vb').innerHTML = ''; setSlide(vc, vi); vc.focus(); }
+    $('#vc').onclick = closeV;
+    $('#vp').onclick = () => { vi = (vi + vl.length - 1) % vl.length; show(); };
+    $('#vn').onclick = () => { vi = (vi + 1) % vl.length; show(); };
+    document.addEventListener('keydown', e => {
+      if (!$('#vw').classList.contains('open')) return;
+      if (e.key === 'Escape') closeV(); else if (e.key === 'ArrowLeft') $('#vp').click(); else if (e.key === 'ArrowRight') $('#vn').click();
+    });
+
+    /* Recherche */
+    const idx = [
+      { id: 'saes', t: 'Projet', n: 'Projets', x: P.saeDefinition },
+      ...P.competences.flatMap(c => [{ id: c.id, t: 'Compétence', n: c.nom, x: c.intitule + ' ' + c.synthese },
+        ...c.acs.map(a => ({ id: 'ac-' + a.code, t: 'AC', n: a.code + ' ' + a.titre,
+          x: a.argumentation + ' ' + a.sae.join(' ') + ' ' + a.fichiers.map(f => f.titre + ' ' + f.fichier + ' ' + (f.legende || '') + ' ' + (f.source || '')).join(' ') }))])
+    ].map(e => ({ ...e, h: norm(e.n + ' ' + e.x) }));
+
+    function go(id) {
+      const el = document.getElementById(id); if (!el) return;
+      el.scrollIntoView(); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    }
+    function openS() { $('#sr').classList.add('open'); $('#q').value = ''; $('#res').innerHTML = ''; $('#q').focus(); }
+    function closeS() { if ($('#sr').classList.contains('open')) { $('#sr').classList.remove('open'); $('#find').focus(); } }
+    $('#find').onclick = openS;
+    $('#sr').addEventListener('mousedown', e => { if (e.target.id === 'sr') closeS(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeS(); $('#cr').classList.remove('open'); side.classList.remove('open'); }
+      else if (e.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); openS(); }
+    });
+    $('#q').addEventListener('input', () => {
+      const w = norm($('#q').value).split(/\s+/).filter(Boolean);
+      if (!w.length) { $('#res').innerHTML = ''; return; }
+      const r = idx.filter(e => w.every(k => e.h.includes(k))).slice(0, 30);
+      $('#res').innerHTML = r.length ? r.map(e => {
+        const i = Math.max(0, e.h.indexOf(w[0]) - 40), sn = e.x.trim() ? e.x.replace(/\s+/g, ' ').slice(i, i + 110) : '';
+        return `<a href="#${e.id}" data-go="${e.id}"><small>${e.t}</small><b>${esc(e.n)}</b>${sn ? `<span>…${esc(sn)}…</span>` : ''}</a>`;
+      }).join('') : '<p class="none">Aucun résultat.</p>';
+    });
+    $('#res').addEventListener('click', e => {
+      const a = e.target.closest('[data-go]'); if (!a) return;
+      e.preventDefault(); $('#sr').classList.remove('open'); go(a.dataset.go);
+    });
+
+    const themeContainer = $('#theme-container');
+    const themeToggle = $('#theme-toggle');
+    if (themeToggle && themeContainer) {
+      themeToggle.onclick = (e) => {
+        e.stopPropagation();
+        themeContainer.classList.toggle('open');
+      };
+      document.addEventListener('click', e => {
+        if (!e.target.closest('#theme-container')) {
+          themeContainer.classList.remove('open');
+        }
+      });
+    }
+  </script>
+</body>
+</html>
